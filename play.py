@@ -10,7 +10,7 @@ import random
 
 
 def load_state(filename):
-    Q = pickle.load(open("/home/navdeep/TicTac/" + filename, "rb"))
+    Q = pickle.load(open("/home/navdeep/TicTac/data/" + filename, "rb"))
     print("load_state:- load_state:- state loaded")
     return Q
 
@@ -31,7 +31,7 @@ def play():
     state = '000000000'
     plot(state)
 
-    print('you are STAR')
+    tl.cprint('you are STAR')
     p2 = 2
     p1 = 1
     if toss in {'y','Y', 'yes', 'Yes'}:

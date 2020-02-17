@@ -5,13 +5,37 @@ import pm
 import datetime 
 import time
 import matplotlib.pyplot as plt
+import os
 
-def load_Q(address):
-    Q = pickle.load(open(address, "rb"))
-    #print("{}->load_Q:- Q loaded".format(sys.argv[0]))
+def cprint(txt):
+    print('\033[91m'+'{}'.format(txt)+'\033[0m')
+# class cprint:
+    
+#     HEADER = '\033[95m'
+#     OKBLUE = '\033[94m'
+#     OKGREEN = '\033[92m'
+#     WARNING = '\033[93m'
+#     FAIL = '\033[91m'
+#     END = '\033[0m'
+#     BOLD = '\033[1m'
+#     UNDERLINE = '\033[4m'    
+
+#     def r(txt):
+#         print('\033[91m'+'{}'.format(txt)+'\033[0m')
+#     def g(txt) :
+#         print('\033[92m'+'{}'.format(txt)+'\033[0m')
+
+
+    
+def load_Q(adress):
+    Q = pickle.load(open(adress, "rb"))
+    print(">tools:load_Q:- Q loaded from {}".format(adress))
     return Q
 
-
+def dump_Q(file, adress):
+    pickle.dump(file, open(adress, 'wb'))
+    if os.path.exists(os.getcwd()+ '/'+ adress):
+        print('>tools:dump_Q:- File dumped at {}'.format(os.getcwd()+ '/' + adress))
  
 
 # def Q(state,player):
@@ -32,7 +56,7 @@ def initialize_Q():
             if(num == '0'):
                 value_temp[act] = pm.init_reward  
             else:
-                value_temp[act] = -1
+                value_temp[act] = pm.imr
         Q[temp] = value_temp
 
     #filename = str(datetime.datetime.now())[:-7] + 'Q'    
@@ -239,7 +263,7 @@ def Symmetry_update(state, action, Q, del_q):
         for i,[state,action] in enumerate(L):
             state = ''.join(list(map(str,state)))
             action = int(action)
-            if Q[state][action] ==-1:
+            if Q[state][action] == pm.imr:
                 print('\033[91m'+'{}->Symmetry_update:- Invalid move, state ={}, action = {}, symmetry={},del_q ={}'.format(sys.argv[0],state,action,i,del_q )+'\033[0m')
         
             Q[state][action] += del_q

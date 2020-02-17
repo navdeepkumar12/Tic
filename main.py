@@ -22,12 +22,12 @@ index = int(index)
 
 if pm.initial_Q == True:   # change here for Q initialization file
     index_q = index-1
-    Q_init_file = 'Q' + str( index_q)
+    Q_init_file = os.getcwd() +'/data/Q'  + str( index_q)
 if type(pm.initial_Q) == str:
-    Q_init_file = pm.initial_Q
+    Q_init_file = os.getcwd + '/data/' + pm.initial_Q
 if pm.initial_Q == False:
     index_q = index
-    Q_init_file = 'Q' + str( index_q)
+    Q_init_file = os.getcwd() +'/data/Q' + str( index_q)
 
 Q = pickle.load(open(Q_init_file,'rb'))
 print('Q value initialized from {}'.format(Q_init_file))
@@ -35,7 +35,7 @@ S = pickle.load(open('state','rb'))
 print('main:- Q and S loaded with len {} and {}'.format(len(Q), len(S)))
 
 ##Printing parameter file
-os.system('cat pm.py >> pm'+str(index)+'.txt')
+os.system('cat pm.py >> data/pm'+str(index)+'.txt')
 print('parameter file {} printed'.format('pm'+str(index)+'.txt'))
 print('\n TRAINING STARTS \n')
 Del_q = []
@@ -51,38 +51,38 @@ for i in range(pm.iterations):
     #print('init:- Compeletions {}% \n'.format(i/pm.iterations))
 
     if i%1000 == 0:
-        pickle.dump(Q,open('Q' + str(index),'wb')) 
+        pickle.dump(Q,open(os.getcwd() +'/data/Q' + str(index),'wb')) 
         #np.savetxt(index+'del_q.npy',Del_q)   
         D = [Q[s] for s in state1]
-        D = tl.Filter(D, -1)
+        D = tl.Filter(D, pm.imr)
         unexplored_action_length = len(list(filter(lambda x:x==pm.init_reward,D)))
         Unexplored_a.append(unexplored_action_length)
         mean_q = np.mean(D)
         Mean_q.append(mean_q)
         print('main:- Q checkpint saved {}th times, convergence mean = {}, unexpld_a ={}'.format(round(i/1000),mean_q,unexplored_action_length))
 
-pickle.dump(Q,open('Q' + str(index),'wb'))    
+pickle.dump(Q,open(os.getcwd() +'/data/Q' + str(index),'wb'))    
 print('\n int:- TRAINING DONE')
 
 # Del_q, saving and plot
-np.savetxt('Del_q'+str(index) +'.npy',Del_q)   
+np.savetxt(os.getcwd()+'/data/Del_q'+str(index) +'.npy',Del_q)   
 q = abs(np.array(Del_q))
 q = np.convolve(q, np.ones(pm.window_length)/pm.window_length)
 plt.title('Delta_q')
 plt.plot(q)
-plt.savefig('Delta_q'+str(index)+ '.png')
+plt.savefig(os.getcwd()+'/data/Delta_q'+str(index)+ '.png')
 plt.close()
 
 # Mean_q
-np.savetxt('Mean_q'+str(index) + '.npy',Mean_q )
+np.savetxt(os.getcwd()+'/data/Mean_q'+str(index) + '.npy',Mean_q )
 plt.plot(Mean_q)
 plt.title('Mean_q')
-plt.savefig('Mean_q'+str(index)+ '.png')
+plt.savefig(os.getcwd()+'/data/Mean_q'+str(index)+ '.png')
 plt.close()
 # Unexplored actions length
-np.savetxt('Unexplored_a'+str(index) + '.npy',Unexplored_a    )
+np.savetxt(os.getcwd()+'/data/Unexplored_a'+str(index) + '.npy',Unexplored_a    )
 plt.plot(Unexplored_a   )
 plt.title('Unexplored_a')
-plt.savefig('Unexplored_a'+str(index)+ '.png')
+plt.savefig(os.getcwd()+'/data/Unexplored_a'+str(index)+ '.png')
 plt.close()
 print('main:- Mean_q, Delta_q fig ,q, Q saved, index = {}'.format(index))

@@ -9,16 +9,18 @@ import sys
 import os
 
 def init():
-    Q = tl.initialize_Q()
+    
     if os.path.exists('index.npy'):
         index = np.loadtxt('index.npy')
         index = int(index) +1
     else :
         index = 10
-
     np.savetxt('index.npy', [index])
-    pickle.dump(Q,open('Q' + str(index),'wb'))
-    print('init:- State saved at /TicTac/state and Q saved at TicTac/{}'.format('Q' + str(index)))
+    
+    Q = tl.initialize_Q()
+    fl_Qtemp = os.getcwd()+'/data/Q' + str(index)
+    pickle.dump(Q,open(fl_Qtemp,'wb'))
+    print('init:- State saved at /TicTac/state and Q saved at TicTac/{}'.format(fl_Qtemp))
     print('init:- Q initialized to zero value, filename ={}'.format('Q' + str(index)))
 
     if os.path.exists('state'):
@@ -32,5 +34,5 @@ def init():
         pickle.dump(S,open('state','wb'))
 
     # valid start start filtering
-    print('init:- Successfully done!')
+    tl.cprint('init:- Successfully done!\n')
 
