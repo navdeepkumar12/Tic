@@ -60,7 +60,7 @@ def plot(output, coordinate1, coordinate2)  :
 
 
 def grid(state_in_string):
-    image = cv2.imread("go1.jpg")
+    image = cv2.imread("/home/navdeep/TicTac/grid/000000000.png")
     (h,w,d) = image.shape
     #print('shape of image', (h,w,d))
     output = image.copy()
@@ -103,14 +103,14 @@ def Q_hist(Q, fil ='Null') :
 
 def check(img,size):
     size = size
-    box = int(1000/size)
+    box = int(pm.imsize/size)
     margin = int(box/2)
 
     for i in range(size):
         x1 = i*box + margin
         y1 = margin
         x2 = i*box + margin
-        y2 = 1000-margin
+        y2 = pm.imsize-margin
         #(x1, y1), (x2, y2)
         img = cv2.line(img, (x1, y1), (x2, y2), (100,100,0), thickness=10, lineType=8, shift=0)
         img = cv2.line(img, (y1, x1), (y2, x2), (100,100,0), thickness=10, lineType=8, shift=0)
@@ -120,7 +120,7 @@ def check(img,size):
 def board(size):
     img = cv2.imread(pm.go_board_adress)
     img = check(img,size)
-    cv2.imwrite('data/go/board'+str(size)+'.png',img )
+    cv2.imwrite(pm.output_adress +'/board'+str(size)+'.png',img )
     return img
 
 def go(state_in_string):
@@ -129,13 +129,13 @@ def go(state_in_string):
         state_in_string = np.array(state_in_string)
     if type(state_in_string) == np.ndarray:
         state_in_string = state_in_string.flatten()
-        state_in_string = ''.join(map(str,state_in_string))
+        state_in_string = ''.join(map(str,map(str,state_in_string)))
     if type(state_in_string) != str:
         tl.cprint('graphic:go:- wrong datatype of string/state')
 
     size = int(np.ceil((np.sqrt(len(state_in_string)))))
     print('size = {}, len = {}'.format(size,len(state_in_string) ))
-    box = int(1000/size)
+    box = int(pm.imsize/size)
     margin = int(box/2)
     radius = int(0.8*margin)
 
@@ -150,7 +150,7 @@ def go(state_in_string):
     for centre2 in coordinate2:
         output = cv2.circle(output, centre2 , radius , (255, 0,0), -1)  
 
-    cv2.imwrite('/home/navdeep/TicTac/data/go/'+state_in_string +'.jpg', output)    
+    cv2.imwrite(pm.output_adress +'/'+state_in_string +'.jpg', output)    
     return output
 
     
