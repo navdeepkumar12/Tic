@@ -32,10 +32,10 @@ def play():
     plot(state)
 
     tl.cprint('you are STAR')
-    p2 = 2
+    p2 = 2      
     p1 = 1
     if toss in {'y','Y', 'yes', 'Yes'}:
-        while tl.Result(state)[0]==0:
+        while True :#tl.Result(state)[0]==0:
             
             print('Current state is {}'.format(state))
             action = input('Enter your action')
@@ -50,7 +50,7 @@ def play():
             plot(state)
             
     else :       
-        while tl.Result(state)[0]==0:
+        while True: #tl.Result(state)[0]==0:
             print('Current state is {}'.format(state))
             action = tl.Action(state, Q[state])
             print('Computer choose action {}'.format(action))

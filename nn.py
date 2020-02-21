@@ -1,6 +1,57 @@
 import numpy as np 
 import pm
 import tools as tl 
+from scipy import signal as sg
+
+
+class pad:
+    def dim(m,mode):
+        if mode == 'full':
+            a,b = m-1,-(m-1)  #x_front,x_back,   p[a:b]=x,  b is negative, a is positive
+        if mode == 'valid':
+            a,b = 0,0
+        if mode == 'same':
+            a = int((m-1)/2)
+            b = -(m-1-a)  
+        return a,b
+
+    def pad1d(x,m,mode):
+        x = x.copy()      #filter shape m
+        x = np.array(x)
+        a,b = pad.dim(m,mode)
+        p = np.zeros(x.shape[0]+a-b) # b is negative
+        if b==0: b=None
+        p[a:b] = x
+        return p
+    def unpad1d(x,m,mode):
+        x = x.copy()
+        a,b = pad.dim(m,mode)     #filter shape m
+        if b==0: b=None
+        x = x[a:b]             # b is negative
+        return x
+    def pad2d(x,f_shape,mode):
+        x = x.copy()
+        m,n = f_shape       #filter shape 
+        k,l = x.shape
+        a,b = pad.dim(m,mode)
+        c,d = pad.dim(n,mode)
+        p = np.zeros((k+a-b, l+c-d)) # b, d is negative
+        if b==0: b=None
+        if d==0: d=None    
+        p[a:b,c:d] = x
+        return p    
+    def unpad2d(x,f_shape,mode):
+        x = x.copy() 
+        m,n = f_shape   #filter shape
+        a,b = pad.dim(m,mode)
+        c,d = pad.dim(n,mode)
+        if b==0: b=None
+        if d==0: d=None  
+        x =x[a:b,c:d]       # b, d is negative
+        return x    
+        
+
+
 
 class layer:
     def __init__(self):
@@ -34,32 +85,6 @@ class linear(layer):
     def forward(self,x):
         self.x = x.copy()
         self.y = self.x@self.w + self.b
-        
-        t =1
-        i =0
-        max= np.max(np.abs(self.y)) 
-        if max>10: 
-            t = 1.1
-            if max >50:
-                t = 28
-                print('overflow, max ={}, normal pass={}'.format(max,i))
-            i = 0
-        if max < 0.1:
-            t  = 1/1.1  
-            if max < 1/50:  
-                t = 1/2     
-                print('underflow max ={}, normal pass{}'.format(max,i))
-            i = 0
-        else:
-            #print('normal') 
-            i = i+1   
-        self.y = self.y/t
-        self.w = self.w/t
-        self.b = self.b/t
-        self.dw = self.dw/t
-        self.db = self.db/t
-
-        
         return self.y
 
     def backward(self, dy):
@@ -74,10 +99,106 @@ class linear(layer):
         self.w = self.w - pm.learning_rate*self.dw      
         self.b = self.b - pm.learning_rate*self.db
 
+        
+
+class hadamard():  
+    def __init__(self,m,n):
+        self.m = m
+        self.n = n
+    def grad_zero(self):
+        self.dw  = np.zeros((self.m,self.n))
+
+    def set_param(self, w):
+        self.w = w
+    
+    def init_param(self):
+        self.w = np.random.randn(self.m,self.n)
+       
+    def forward(self,x):
+        self.x = x.copy()
+        self.y = self.x*self.w      
+        return self.y
+
+    def backward(self, dy):
+        self.dy = dy
+        self.dx = self.dy*self.w
+        self.delta =self.dy*self.x
+        self.dw = self.dw*(pm.momentum) + (1-pm.momentum)*self.delta
+        return self.dx
+
+    def update(self):
+        self.w = self.w - pm.learning_rate*self.dw      
+        
+class convolve():  
+    def __init__(self,m, mode ='same'):
+        #self.mode_list = ['full','same','valid']
+        self.m = m
+        self.mode = mode
+        #self.modeb = self.mode_list[2-self.mode_list.index(self.modef)]   #reversing the mode
+        
+       
+    def grad_zero(self):
+        self.delta  = np.zeros(self.m)
+
+    def set_param(self, w):
+        self.w = w
+    
+    def init_param(self):
+        self.w = np.random.randn(self.m)
+       
+    def forward(self,x):
+        self.x = x.copy()
+        self.X = pad.pad1d(self.x, self.m, self.mode)  #padding
+        self.y = sg.correlate(self.X, self.w, mode='valid')     
+        return self.y
+
+    def backward(self, dy):
+        self.dy = dy.copy()
+        self.dX = sg.convolve(self.dy, self.w, mode='full')  #padded grad
+        self.dw = sg.correlate(self.X, self.dy, mode='valid')
+        self.dx = pad.unpad1d(self.dX, self.m, mode=self.mode) #unpadded grad
+        return self.dx
+
+    def update(self):
+        self.delta = self.delta*(pm.momentum) + (1-pm.momentum)*self.dw
+        self.w = self.w - pm.learning_rate*self.dw      
+
+class convolve2d():  
+    def __init__(self,m,n, mode ='full'):
+        self.m = m
+        self.n = n
+        self.mode = mode
+    def grad_zero(self):
+        self.delta  = np.zeros((self.m, self.n))
+
+    def set_param(self, w):
+        self.w = w
+    
+    def init_param(self):
+        self.w = np.random.randn(self.m, self.n)
+       
+    def forward(self,x):
+        self.x = x.copy()
+        self.X = pad.pad2d(x,(self.m, self.n), self.mode)  #padded x = X
+        self.y = sg.correlate2d(self.X, self.w, 'valid')     
+        return self.y
+
+    def backward(self, dy):
+        self.dy = dy.copy()
+        self.dX = sg.convolve2d(self.dy,self.w, mode='full')        #padded dX
+        self.dw = sg.correlate2d(self.X, self.dy, mode='valid')
+        self.dx = pad.unpad2d(self.dX, (self.m, self.n), self.mode)   #padded dx
+        return self.dx
+
+    def update(self):
+        self.delta = self.delta*(pm.momentum) + (1-pm.momentum)*self.dw
+        self.w = self.w - pm.learning_rate*self.delta    
+
+
 class relu(layer):
     def __init__(self):
         super().__init__()
-        
+
     def forward(self,x):
         self.x = x.copy()
         self.y = np.where(self.x<0,0,self.x)
@@ -87,8 +208,7 @@ class relu(layer):
         self.dy = dy.copy()
         self.dx = np.where(self.y<0,0,1)*self.dy
         return self.dx
-
-
+    
         
 class mse():
     def __init__(self):
@@ -149,6 +269,8 @@ class cre():
             self.dx = self.dx/t
         
         return self.dx   
+
+
 
 
 # class sequential():

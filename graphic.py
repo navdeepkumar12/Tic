@@ -60,7 +60,7 @@ def plot(output, coordinate1, coordinate2)  :
 
 
 def grid(state_in_string):
-    image = cv2.imread("/home/navdeep/TicTac/grid/000000000.png")
+    image = cv2.imread(pm.tictac_board_adress)
     (h,w,d) = image.shape
     #print('shape of image', (h,w,d))
     output = image.copy()
