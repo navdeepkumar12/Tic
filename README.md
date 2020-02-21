@@ -14,10 +14,10 @@ To play with trained agent interactively:- 1) Run play.py, 2)enter 'Q<>' with wh
 #-----------------------------ALPHA GO ----------------------------------------------#
 
 nn.py has neural network library, like linear, relu, softmax, convolution, cre, mse forward and backpropagation.
-Backprop for convolution:-  input x,output y, filter w, inward grad dy, outward grad dx, mode {'full', 'valid', same','custom'}.
-Algo
 
-X = pad(x, required for mode = 'full', 'valid', 'same')
+Backprop for convolution:-  input x,output y, filter w, inward grad dy, outward grad dx, mode {'full', 'valid', same','custom'}. Algorithm is below.
+
+X = pad(x, required for mode)
 
 y = correlate(X,w, 'valid')
 
