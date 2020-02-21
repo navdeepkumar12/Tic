@@ -12,4 +12,5 @@ To play with trained agent interactively:- 1) Run play.py, 2)enter 'Q<>' with wh
 
 
 #-----------------------------ALPHA GO ----------------------------------------------#
+
 nn.py has neural network library, like linear, relu, softmax, convolution, cre, mse forward and backpropagation.
