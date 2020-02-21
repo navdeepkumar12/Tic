@@ -25,4 +25,4 @@ dX = convolve(dy, w, 'full')
 
 dw = correlate(X,dy, 'valid')
 
-dx = uppad(X, same as padding)
+dx = uppad(dX, same as padding)
