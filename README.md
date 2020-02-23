@@ -1,4 +1,4 @@
-# Tic
+
 
  # TicTacToe
 This trains agent  to play TicTac via reinforcement learnig. 
