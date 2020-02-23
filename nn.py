@@ -270,9 +270,42 @@ class cre():
         
         return self.dx   
 
+class sigmoid():
+    def __init__(self):
+        self.dx =[]
 
+    def forward(self, x):
+        self.x = x.copy()
+        self.y = 1/(1+np.exp(-x))
+        return self.y
 
+    def backward(self, dy):
+        self.dy = dy.copy()
+        self.dx = self.dy*self.y*(1-self.y)    
+        return self.dx
 
+        
+class optimizer():
+    def __init__(self, eta=0.001,beta1 = 0.9, beta2 = 0.999,epsilon=10**(-8)):
+        self.eta = eta
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.epsilon =epsilon
+        self.t = 0     #time stamp
+        self.m1 = 0    #first order moment aka momentum
+        self.m2 = 0    #second order moment
+        self.dw = []
+        self.delta = []
+    def adam(self, dw):
+        self.t = self.t + 1
+        self.dw = dw
+        self.m1 = self.beta1*self.m1 + (1-self.beta1)*self.dw
+        self.m2 = self.beta2*self.m2 + (1-self.beta2)*(self.dw*self.dw)
+        self.temp1 = self.m1/(1-self.beta1**self.t) #Bias correction, as it was initilized to 0
+        self.temp2 = self.m2/(1-self.beta2**self.t)  # Bias correction
+        self.delta = self.eta*self.temp1/(np.sqrt(self.m2)+self.epsilon)
+        return self.delta
+        
 # class sequential():
 #     def __init__(self):
 #         self.L = []
