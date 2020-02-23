@@ -28,3 +28,7 @@ dX = convolve(dy, w, 'full')
 dw = correlate(X,dy, 'valid')
 
 dx = uppad(dX, same as padding)
+
+               #Opitimizer ADAM
+See original paper ADAM: A METHOD  FORSTOCHASTICOPTIMIZATION for excellent reference.
+https://arxiv.org/pdf/1412.6980.pdf               
