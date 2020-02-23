@@ -1,4 +1,6 @@
 # Tic
+
+#--------------------TicTacToe---------------------------------------------------#
 This trains agent  to play TicTac via reinforcement learnig. 
 
 To Train:-  Run main.py.  It will output Q<index> file which contains Q value function, and other plots and file. One set of output file indexed with 129 is provided.
