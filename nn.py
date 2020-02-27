@@ -2,8 +2,7 @@ import numpy as np
 import pm
 import tools as tl 
 from scipy import signal as sg
-
-
+x = np.random.randint(0,2,(2,3,4,5))
 class pad:
     def dim(m,mode):
         if mode == 'full':
@@ -15,7 +14,7 @@ class pad:
             b = -(m-1-a)  
         return a,b
 
-    def pad1d(x,m,mode):
+    def pad1d(x,m,mode='full'):
         x = x.copy()      #filter shape m
         x = np.array(x)
         a,b = pad.dim(m,mode)
@@ -23,13 +22,13 @@ class pad:
         if b==0: b=None
         p[a:b] = x
         return p
-    def unpad1d(x,m,mode):
+    def unpad1d(x,m,mode='full'):
         x = x.copy()
         a,b = pad.dim(m,mode)     #filter shape m
         if b==0: b=None
         x = x[a:b]             # b is negative
         return x
-    def pad2d(x,f_shape,mode):
+    def pad2d(x,f_shape,mode='full'):
         x = x.copy()
         m,n = f_shape       #filter shape 
         k,l = x.shape
@@ -40,7 +39,7 @@ class pad:
         if d==0: d=None    
         p[a:b,c:d] = x
         return p    
-    def unpad2d(x,f_shape,mode):
+    def unpad2d(x,f_shape,mode='full'):
         x = x.copy() 
         m,n = f_shape   #filter shape
         a,b = pad.dim(m,mode)
@@ -164,10 +163,10 @@ class convolve():
         self.w = self.w - pm.learning_rate*self.dw      
 
 class convolve2d():  
-    def __init__(self,m,n, mode ='full'):
-        self.m = m
-        self.n = n
+    def __init__(self,shape, mode ='full'):
+        self.m, self.n = shape
         self.mode = mode
+    
     def grad_zero(self):
         self.delta  = np.zeros((self.m, self.n))
 
@@ -189,11 +188,49 @@ class convolve2d():
         self.dw = sg.correlate2d(self.X, self.dy, mode='valid')
         self.dx = pad.unpad2d(self.dX, (self.m, self.n), self.mode)   #padded dx
         return self.dx
-
+   
     def update(self):
         self.delta = self.delta*(pm.momentum) + (1-pm.momentum)*self.dw
         self.w = self.w - pm.learning_rate*self.delta    
 
+
+
+class convolve3d():  
+    def __init__(self, mode ='same'):
+        self.mode = mode     #(k,l,m,n) k filter, l input dim, (m,n)filter shape
+        self.k, self.l, self.m, self.n = [],[],[],[]
+    def grad_zero(self):
+        self.delta  =  0 #np.zeros((self.k, self.l, self.m, self.n))
+
+    def set_param(self, w):
+        self.w = w
+        self.k, self.l, self.m, self.n = np.shape(w)
+        self.grad_zero()
+    
+    def init_param(self,shape):
+        self.k, self.l, self.m, self.n = shape
+        self.w = np.random.randn(self.k, self.l, self.m, self.n)
+        
+    def forward(self,x):
+        self.x = x.copy()
+        self.X = np.array([pad.pad2d(x,(self.m, self.n), self.mode) for x in self.x]) # X = padded x ,dim=(l,m',n')
+        self.Y = np.array([[sg.correlate2d(x2,w2,mode='valid') for x2,w2 in zip(self.X, w1)] for w1 in self.w]) # dim=(k,l,m',n')
+        self.y = np.sum(self.Y, axis=1) # dim=(k,m',n')       
+        return self.y
+
+    def backward(self, dy0):
+        self.dy = dy0.copy()
+        self.dX = np.array([[sg.convolve2d(dy,w1,mode='full') for w1 in w] for dy,w in zip(self.dy,self.w)]) #padded dX, dim(k,l,m',n')
+        self.dw = np.array([[sg.correlate2d(X, dy, mode='valid') for X in self.X] for dy in self.dy]) # dim(k,l,m,n)
+        self.dX1 = np.sum(self.dX, axis=0)  #padded dx, dim(l,m',n')
+        self.dx = np.array([pad.unpad2d(dX1, (self.m, self.n), self.mode) for dX1 in self.dX1])   #dim(l,m,n)
+        return self.dx
+    def update(self):
+        self.delta = self.delta*(pm.momentum) + (1-pm.momentum)*self.dw
+        self.w = self.w - pm.learning_rate*self.delta    
+
+
+    
 
 class relu(layer):
     def __init__(self):
@@ -292,18 +329,18 @@ class optimizer():
         self.beta2 = beta2
         self.epsilon =epsilon
         self.t = 0     #time stamp
-        self.m1 = 0    #first order moment aka momentum
-        self.m2 = 0    #second order moment
+        self.m = 0    #first order moment aka momentum
+        self.v = 0    #second order moment
         self.dw = []
         self.delta = []
     def adam(self, dw):
         self.t = self.t + 1
         self.dw = dw
-        self.m1 = self.beta1*self.m1 + (1-self.beta1)*self.dw
-        self.m2 = self.beta2*self.m2 + (1-self.beta2)*(self.dw*self.dw)
-        self.temp1 = self.m1/(1-self.beta1**self.t) #Bias correction, as it was initilized to 0
-        self.temp2 = self.m2/(1-self.beta2**self.t)  # Bias correction
-        self.delta = self.eta*self.temp1/(np.sqrt(self.m2)+self.epsilon)
+        self.m = self.beta1*self.m + (1-self.beta1)*self.dw
+        self.v = self.beta2*self.v + (1-self.beta2)*(self.dw*self.dw)
+        self.temp1 = self.m/(1-self.beta1**self.t) #Bias correction, as it was initilized to 0
+        self.temp2 = self.v/(1-self.beta2**self.t)  # Bias correction
+        self.delta = self.eta*self.temp1/(np.sqrt(self.v)+self.epsilon)
         return self.delta
         
 # class sequential():
