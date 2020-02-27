@@ -17,7 +17,7 @@ To play with trained agent interactively:- 1) Run play.py, 2)enter 'Q<>' with wh
 
 nn.py has neural network library, like linear, relu, softmax, convolution, cre, mse forward and backpropagation.
 
-          # Backprop for convolution
+          # Backprop for convolution (1d input & 1d output,  2d input &2d weight)
 input x,output y, filter w, inward grad dy, outward grad dx, mode {'full', 'valid', same','custom'}. Algorithm is below.
 
 X = pad(x, required for mode)
@@ -29,6 +29,24 @@ dX = convolve(dy, w, 'full')
 dw = correlate(X,dy, 'valid')
 
 dx = uppad(dX, same as padding)
+
+         #Backprop for convolution( 3d input 4d weights)
+dim(x) = (l,m,n), dim(w) = (k,l,m,n) , dim(dy) = (k,m*,n*)
+
+X = pad(x, as required for mode), # dim(X) = (l,m',n')  
+
+Y = [[correlate(x2,w2,mode='valid') for x2,w2 in zip(X, w1)] for w1 in w]) # dim(Y) = (k,l,m*,n*)  
+
+y = sum(Y, axis=1) # dim(y) = (k,m*,n*)
+
+dX = [[convolve(dy,w1,mode='full') for w1 in w] for dy,w in zip(dy,w)]) #padded dX, dim(k,l,m',n')
+
+dw = [[correlate(X, dy, mode='valid') for X in X] for dy in dy])     # dim(k,l,m,n)
+
+dX1 = sum(self.dX, axis=0)  #padded dx, dim(l,m',n')
+
+dx =  unpad(dX1)  #dim(l,m,n)
+
 
                # Opitimizer ADAM
 See original paper ADAM: A METHOD  FOR STOCHASTIC OPTIMIZATION for excellent reference.
