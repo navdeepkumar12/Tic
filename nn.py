@@ -2,7 +2,7 @@ import numpy as np
 import pm
 import tools as tl 
 from scipy import signal as sg
-x = np.random.randint(0,2,(2,3,4,5))
+
 class pad:
     def dim(m,mode):
         if mode == 'full':
@@ -50,36 +50,24 @@ class pad:
         return x    
         
 
-
-
-class layer:
+class linear():
     def __init__(self):
-        self.w = []
-        self.b = []
-        self.x = []
-        self.y = []
-        self.dw = []
-        self.db = []
-        self.dx = []
-        self.dy = []
-
-class linear(layer):
-    def __init__(self, x_dim, y_dim):
-        super().__init__()
-        self.x_dim = x_dim
-        self.y_dim = y_dim
+        self.x_dim,  self.y_dim = [],[]
         
     def grad_zero(self):
-        self.db = np.zeros(self.y_dim)
-        self.dw  = np.zeros((self.x_dim, self.y_dim))
+        self.db, self.dw  = 0,0
 
     def set_param(self, w, b):
         self.w = w.copy()
         self.b = b.copy()
+        self.x_dim, self.y_dim = w.shape
+        self.grad_zero()
 
-    def init_param(self):
-        self.w = np.random.randn(self.x_dim, self.y_dim)
+    def init_param(self,shape):
+        self.x_dim, self.y_dim = shape
+        self.w = np.random.randn(self.x_dim, self.y_dim)/np.sqrt(self.x_dim*self.y_dim)
         self.b = np.zeros(self.y_dim)
+        self.grad_zero()
    
     def forward(self,x):
         self.x = x.copy()
@@ -101,17 +89,20 @@ class linear(layer):
         
 
 class hadamard():  
-    def __init__(self,m,n):
-        self.m = m
-        self.n = n
+    def __init__(self):
+        self.m ,self.n = [],[]
     def grad_zero(self):
-        self.dw  = np.zeros((self.m,self.n))
+        self.dw  = 0
 
     def set_param(self, w):
+        self.m, self.n = w.shape
         self.w = w
+        self.grad_zero()        
     
-    def init_param(self):
+    def init_param(self,shape):
+        self.m, self.n = shape
         self.w = np.random.randn(self.m,self.n)
+        self.grad_zero()
        
     def forward(self,x):
         self.x = x.copy()
@@ -130,20 +121,21 @@ class hadamard():
         
 class convolve():  
     def __init__(self,m, mode ='same'):
-        #self.mode_list = ['full','same','valid']
-        self.m = m
-        self.mode = mode
-        #self.modeb = self.mode_list[2-self.mode_list.index(self.modef)]   #reversing the mode
-        
+        self.m = []
+        self.mode = mode        
        
     def grad_zero(self):
-        self.delta  = np.zeros(self.m)
+        self.delta  = 0
 
     def set_param(self, w):
         self.w = w
+        self.m, = w.shape
+        self.grad_zero()
     
-    def init_param(self):
+    def init_param(self,m):
+        self.m = m
         self.w = np.random.randn(self.m)
+        self.grad_zero()
        
     def forward(self,x):
         self.x = x.copy()
@@ -163,18 +155,22 @@ class convolve():
         self.w = self.w - pm.learning_rate*self.dw      
 
 class convolve2d():  
-    def __init__(self,shape, mode ='full'):
-        self.m, self.n = shape
+    def __init__(self, mode ='full'):
+        self.m, self.n = [],[]
         self.mode = mode
     
     def grad_zero(self):
-        self.delta  = np.zeros((self.m, self.n))
+        self.delta  = 0
 
     def set_param(self, w):
         self.w = w
+        self.m, self.n = w.shape
+        self.grad_zero()
     
-    def init_param(self):
+    def init_param(self,shape):
+        self.m , self.n = shape
         self.w = np.random.randn(self.m, self.n)
+        self.grad_zero()
        
     def forward(self,x):
         self.x = x.copy()
@@ -196,9 +192,9 @@ class convolve2d():
 
 
 class convolve3d():  
-    def __init__(self, mode ='same'):
+    def __init__(self, shape=(None,None,None,None), mode ='same', bias=True):
         self.mode = mode     #(k,l,m,n) k filter, l input dim, (m,n)filter shape
-        self.k, self.l, self.m, self.n = [],[],[],[]
+        self.k, self.l, self.m, self.n = shape
     def grad_zero(self):
         self.delta  =  0 #np.zeros((self.k, self.l, self.m, self.n))
 
@@ -218,8 +214,8 @@ class convolve3d():
         self.y = np.sum(self.Y, axis=1) # dim=(k,m',n')       
         return self.y
 
-    def backward(self, dy0):
-        self.dy = dy0.copy()
+    def backward(self, dy):
+        self.dy = dy.copy()
         self.dX = np.array([[sg.convolve2d(dy,w1,mode='full') for w1 in w] for dy,w in zip(self.dy,self.w)]) #padded dX, dim(k,l,m',n')
         self.dw = np.array([[sg.correlate2d(X, dy, mode='valid') for X in self.X] for dy in self.dy]) # dim(k,l,m,n)
         self.dX1 = np.sum(self.dX, axis=0)  #padded dx, dim(l,m',n')
@@ -232,10 +228,9 @@ class convolve3d():
 
     
 
-class relu(layer):
+class relu():
     def __init__(self):
-        super().__init__()
-
+        pass
     def forward(self,x):
         self.x = x.copy()
         self.y = np.where(self.x<0,0,self.x)
@@ -254,11 +249,11 @@ class mse():
         self.label = label.copy()  
         self.x = x.copy()
         self.y = np.sum((self.x - self.label)*(self.x - self.label))/2
+        return self.y
+
+    def backward(self):
         self.dx = self.x - self.label 
-        t= np.max(np.abs(self.dx)) 
-        if t>10:
-            print(self.dx, 'mse:-overflow')
-            self.dx = self.dx/t
+        #t= np.max(np.abs(self.dx)) 
         
         return self.dx   
 
@@ -279,7 +274,7 @@ class softmax():
         self.dx =  self.y*(self.dy - self.avg) 
         t= np.max(np.abs(self.dx)) 
         if t>100:
-            #print(self.dx, 'overflow')
+            print(t, 'overflow')
             self.dx = self.dx/t
          
         return self.dx 
@@ -295,14 +290,17 @@ class cre():
         if np.sum(np.where(self.x <0,-1,0)) <0 : #sanity check
             tl.cprint('nn.py:cre:- Input are negative for cross entropy loss, input={}'.format(self.x))
             return 
-        self.label_entropy = -np.log2(self.label)*self.label
-        self.x_entropy = -np.log2(self.x)*self.label
-        self.y = self.x_entropy - self.label_entropy
+        self.label_entropy = -np.log2(self.label+0.0001)*self.label
+        self.x_entropy = -np.log2(self.x+0.0001)*self.label
+        self.y = self.x_entropy  - self.label_entropy
         self.y = np.sum(self.y)   #KL divergence
+        return self.y
+    
+    def backward(self) :   
         self.dx = -self.label*(1/self.x)
         t= np.max(np.abs(self.dx)) 
         if t>100:
-            #print(self.dx, 'overflow')
+            print(t, 'overflow')
             self.dx = self.dx/t
         
         return self.dx   
@@ -343,6 +341,39 @@ class optimizer():
         self.delta = self.eta*self.temp1/(np.sqrt(self.v)+self.epsilon)
         return self.delta
         
+class add():
+    def __init__(self):
+        self.dw = []
+        self.w  = 0
+        self.grad_zero()
+
+    def grad_zero(self):
+        self.delta = 0
+    
+    def init(self):
+        self.w = 0
+        self.grad_zero()
+
+    def set_param(self,w):
+        self.w = w
+        self.grad_zero()
+
+    def forward(self,x):
+        self.x = x.copy()
+        self.y = self.x + self.w
+        return self.y
+    
+    def backward(self, dy): 
+        self.dy = dy.copy()
+        self.dw = self.dy 
+        self.dx = self.dy
+        return self.dx  
+
+    def update(self):
+        self.delta = self.delta*pm.momentum + self.dw*(1-pm.momentum)  
+        self.w = self.w - pm.learning_rate*self.delta  
+
+
 # class sequential():
 #     def __init__(self):
 #         self.L = []
