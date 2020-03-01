@@ -287,22 +287,14 @@ class cre():
     def forward(self,x, label):
         self.label = label.copy()  
         self.x = x.copy()
-        if np.sum(np.where(self.x <0,-1,0)) <0 : #sanity check
-            tl.cprint('nn.py:cre:- Input are negative for cross entropy loss, input={}'.format(self.x))
-            return 
-        self.label_entropy = -np.log2(self.label+0.0001)*self.label
+        self.label_entropy = -np.log2(self.label+0.0001)*self.label    #0.0001 is added to avoid log(0)
         self.x_entropy = -np.log2(self.x+0.0001)*self.label
         self.y = self.x_entropy  - self.label_entropy
         self.y = np.sum(self.y)   #KL divergence
         return self.y
     
     def backward(self) :   
-        self.dx = -self.label*(1/self.x)
-        t= np.max(np.abs(self.dx)) 
-        if t>100:
-            print(t, 'overflow')
-            self.dx = self.dx/t
-        
+        self.dx = -self.label*(1/(self.x+0.0001))       # 0.0001 is added to avoid insanely large value of 1/x     
         return self.dx   
 
 class sigmoid():

@@ -14,9 +14,9 @@ def load_state(filename):
     print("load_state:- load_state:- state loaded")
     return Q
 
-def plot(state):
+def plot(output):
     # cv2.destroyAllWindows()
-    output = grid(state)
+    
     plt.close()
     plt.imshow(output)
     plt.show(block=False)
@@ -29,7 +29,8 @@ def play():
     Q = load_state(filename)
     toss = input('Do you want to start')
     state = '000000000'
-    plot(state)
+    output = grid(state)
+    plot(output)
 
     tl.cprint('you are STAR')
     p2 = 2      
@@ -40,14 +41,16 @@ def play():
             print('Current state is {}'.format(state))
             action = input('Enter your action')
             state = tl.SAS(state,action, p2)
-            plot(state)
+            output = grid(state)
+            plot(output)
             
             print('Current state is {}'.format(state))
             action = tl.Action(state, Q[state])
             print('Computer chose action {}'.format(action))
             state = tl.SAS(state, action,p1)
             
-            plot(state)
+            output = grid(state)
+            plot(output)
             
     else :       
         while True: #tl.Result(state)[0]==0:
@@ -55,11 +58,13 @@ def play():
             action = tl.Action(state, Q[state])
             print('Computer choose action {}'.format(action))
             state = tl.SAS(state, action,p1)
-            plot(state)
+            output = grid(state)
+            plot(output)
             print('Current state is {}'.format(state))
             action = input('Enter your action')
             state = tl.SAS(state,action, p2)
-            plot(state)
+            output = grid(state)
+            plot(output)
             
 
 def play2(a1,a2, no_of_matches):

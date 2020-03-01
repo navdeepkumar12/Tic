@@ -7,8 +7,19 @@ import time
 import matplotlib.pyplot as plt
 import os
 
-def cprint(txt):
-    print('\033[91m'+'{}'.format(txt)+'\033[0m')
+def cprint(txt, color = 'red'):
+    if color == 'red':
+        print('\033[91m'+'{}'.format(txt)+'\033[0m')
+    if color == 'green':
+        print('\033[92m'+'{}'.format(txt)+'\033[0m')
+    if color == 'blue':
+        print('\033[94m'+'{}'.format(txt)+'\033[0m')    
+
+
+def fprint(txt):
+    sys.stdout.flush()
+    sys.stdout.write('\r  {}'.format(txt))
+        
 # class cprint:
     
 #     HEADER = '\033[95m'
@@ -352,6 +363,18 @@ def Filter(Q, fil ='Null') :
         print('not a address str nor Q dictionary, nor list.array')
     
     return Q  
+
+
+def index(adress):
+    
+    if os.path.exists('adress'):
+        index = np.loadtxt('adress')
+        index = int(index) +1
+    else :
+        index = 10
+    np.savetxt('adress', [index])
+
+    return index
     
     
             
