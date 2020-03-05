@@ -49,188 +49,172 @@ class pad:
         x =x[a:b,c:d]       # b, d is negative
         return x    
         
+class optimizer():
+    def __init__(self, eta=0.001,beta1 = 0.9, beta2 = 0.999,epsilon=10**(-8)):
+        self.eta = eta
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.epsilon =epsilon
+        self.t = 0     #time stamp
+        self.m = 0    #first order moment aka momentum
+        self.v = 0    #second order moment
+        self.dw = None
+        self.delta = []
+        self.beta1t = 1
+        self.beta2t = 1
+        
 
-class linear():
+class momentum(optimizer):
     def __init__(self):
-        self.x_dim,  self.y_dim = [],[]
+        super().__init__()
+    def forward(self,dw):
+        self.t = self.t + 1
+        self.dw = dw
+        self.m = self.beta1*self.m + (1-self.beta1)*self.dw
+        self.beta1t = self.beta1t*self.beta1      # = self.beta1**t
+        self.temp3 = self.m/(1-self.beta1t) # =m, Bias correction, as it was initilized to 0
+        self.delta = self.eta*self.temp3
+        return self.delta
+
+
+class adam(optimizer):
+    
+    def forward(self,dw):
+        self.t = self.t + 1
+        self.dw = dw.copy()
+        self.m = self.beta1*self.m + (1-self.beta1)*self.dw
+        self.v = self.beta2*self.v + (1-self.beta2)*(self.dw*self.dw)
+        self.beta1t = self.beta1t*self.beta1      # = self.beta1**t
+        self.beta2t = self.beta2t*self.beta2      # = self.beta2**t
+        self.temp3 = self.m/(1-self.beta1t) # =m, Bias correction, as it was initilized to 0
+        self.temp4 = self.v/(1-self.beta2t)  # =v,  Bias correction
+        self.delta = self.eta*self.temp3/(np.sqrt(self.temp4)+self.epsilon)
+        return self.delta
+
+class adamax(optimizer):
+    def __init__ (self):
+        super().__init__()
+        self.first_time = True
         
-    def grad_zero(self):
-        self.db, self.dw  = 0,0
+    def initilize(self):
+        if self.first_time == True:
+            self.shape = self.dw.shape
+            self.v = np.zeros(self.shape) 
+            self.first_time == False   
 
-    def set_param(self, w, b):
-        self.w = w.copy()
-        self.b = b.copy()
-        self.x_dim, self.y_dim = w.shape
-        self.grad_zero()
+    def forward(self,dw):
+        self.t = self.t + 1
+        self.dw = dw ; self.initilize()    # takes shape of dw and makes v same shape
+        self.m = self.beta1*self.m + (1-self.beta1)*self.dw
+        self.v = np.max(np.array([self.beta2*self.v, np.abs(self.dw)]), axis=0) # = max(beta*v,|dw|) 
+        self.beta1t = self.beta1t*self.beta1      # = self.beta1**t, for m correction
+        self.temp3 = self.m/(1-self.beta1t) # =m, Bias correction, as it was initilized to 0
+        self.temp4 = self.v        # =v , Bias correction not required, as it gets first input from real data
+        self.delta = self.eta*self.temp3/(self.temp4+self.epsilon)  
+        return self.delta
 
-    def init_param(self,shape):
-        self.x_dim, self.y_dim = shape
-        self.w = np.random.randn(self.x_dim, self.y_dim)/np.sqrt(self.x_dim*self.y_dim)
-        self.b = np.zeros(self.y_dim)
-        self.grad_zero()
-   
-    def forward(self,x):
-        self.x = x.copy()
-        self.y = self.x@self.w + self.b
-        return self.y
 
-    def backward(self, dy):
-        self.dy = dy
-        self.dx = self.dy@np.transpose(self.w)  
-        self.delta = np.outer(self.x, self.dy)
-        self.dw = self.dw*(pm.momentum) + (1-pm.momentum)*self.delta
-        self.db = self.db*(pm.momentum) + (1-pm.momentum)*self.dy
-        return self.dx
-
-    def update(self):
-        self.w = self.w - pm.learning_rate*self.dw      
-        self.b = self.b - pm.learning_rate*self.db
-
-        
-
-class hadamard():  
+class param():
     def __init__(self):
-        self.m ,self.n = [],[]
-    def grad_zero(self):
-        self.dw  = 0
+        self.shape = None
+        self.w =  []
 
-    def set_param(self, w):
-        self.m, self.n = w.shape
-        self.w = w
-        self.grad_zero()        
+class ones(param):
+    def forward(self,shape):
+        self.shape = shape    
+        self.w = np.ones(self.shape)
+        return self.w
+
+class zeros(param):
+    def forward(self,shape):
+        self.shape = shape
+        self.w = np.zeros(self.shape)  
+        return self.w
+
+class uniform(param):
+    def forward(self,shape):
+        self.shape = shape
+        self.w = np.random.random(self.shape)
+        return self.w
+
+class normal(param):
+    def forward(self,shape):
+        self.shape = shape
+        self.w = eval('np.random.randn'+ str(self.shape))
+        return self.w
+
+class he(param):
+    def forward(self,shape):
+        self.shape = shape 
+        self.scale = np.sqrt(self.shape[0],np.prod(self.shape[1:]))   # for lin and conv2d, conv3d, ?for conv1d, add1
+        self.w = eval('np.random.randn'+ str(self.shape))/self.scale
+        print('nn:param:he:- param initilized HE random normal')
+        return self.w
+
+
+class layer():
+
+    def __init__(self, shape=None, opt='adam', param = 'normal', trainable = True, mode = 'valid'):
+        self.x, self.y, self.dy, self.dx , self.dw, self.delta = np.repeat(None,6)
+        self.w = 0 # By defalut weights is 0 if shape is not specified, works good for add layer
+        self.opt = eval(opt+'()')
+        self.shape = shape
+        self.trainable = trainable
+        self.mode = mode #only for convolution
+        # Set param and sanity check
+        if type(param) ==str:  #  param init is inputed
+            self.param = eval(param+'()')
+            if shape != None:  # Dosn't init weights of Relu, cre , etc
+                self.init_param()
+        if type(param) in {list, np.ndarray}: # set param and sanity check
+            if self.shape == None or self.shape == param.shape:
+                self.set_param(param)         
+            else: tl.cprint('layer:init:- layer shape ={} not matched with param shape {}'.format(self.shape,param.shape))
     
-    def init_param(self,shape):
-        self.m, self.n = shape
-        self.w = np.random.randn(self.m,self.n)
-        self.grad_zero()
-       
-    def forward(self,x):
-        self.x = x.copy()
-        self.y = self.x*self.w      
-        return self.y
-
-    def backward(self, dy):
-        self.dy = dy
-        self.dx = self.dy*self.w
-        self.delta =self.dy*self.x
-        self.dw = self.dw*(pm.momentum) + (1-pm.momentum)*self.delta
-        return self.dx
-
-    def update(self):
-        self.w = self.w - pm.learning_rate*self.dw      
+    def set_opt(self,opt):
+        self.opt = opt
+    
+    def set_param(self, w):
+        self.w = w
+        self.shape = w.shape
         
-class convolve():  
-    def __init__(self,m, mode ='same'):
-        self.m = []
-        self.mode = mode        
-       
-    def grad_zero(self):
-        self.delta  = 0
-
-    def set_param(self, w):
-        self.w = w
-        self.m, = w.shape
-        self.grad_zero()
+    def init_param(self, shape = None, param=None): 
+        if param != None:   # changing __init__ param init
+            self.param = eval(param+'()')   
+        if shape != None: # changing __init__ param shape
+            self.shape = shape    
+        self.w = self.param.forward(self.shape)
     
-    def init_param(self,m):
-        self.m = m
-        self.w = np.random.randn(self.m)
-        self.grad_zero()
-       
     def forward(self,x):
-        self.x = x.copy()
-        self.X = pad.pad1d(self.x, self.m, self.mode)  #padding
-        self.y = sg.correlate(self.X, self.w, mode='valid')     
-        return self.y
-
-    def backward(self, dy):
-        self.dy = dy.copy()
-        self.dX = sg.convolve(self.dy, self.w, mode='full')  #padded grad
-        self.dw = sg.correlate(self.X, self.dy, mode='valid')
-        self.dx = pad.unpad1d(self.dX, self.m, mode=self.mode) #unpadded grad
-        return self.dx
-
-    def update(self):
-        self.delta = self.delta*(pm.momentum) + (1-pm.momentum)*self.dw
-        self.w = self.w - pm.learning_rate*self.dw      
-
-class convolve2d():  
-    def __init__(self, mode ='full'):
-        self.m, self.n = [],[]
-        self.mode = mode
-    
-    def grad_zero(self):
-        self.delta  = 0
-
-    def set_param(self, w):
-        self.w = w
-        self.m, self.n = w.shape
-        self.grad_zero()
-    
-    def init_param(self,shape):
-        self.m , self.n = shape
-        self.w = np.random.randn(self.m, self.n)
-        self.grad_zero()
-       
-    def forward(self,x):
-        self.x = x.copy()
-        self.X = pad.pad2d(x,(self.m, self.n), self.mode)  #padded x = X
-        self.y = sg.correlate2d(self.X, self.w, 'valid')     
-        return self.y
-
-    def backward(self, dy):
-        self.dy = dy.copy()
-        self.dX = sg.convolve2d(self.dy,self.w, mode='full')        #padded dX
-        self.dw = sg.correlate2d(self.X, self.dy, mode='valid')
-        self.dx = pad.unpad2d(self.dX, (self.m, self.n), self.mode)   #padded dx
-        return self.dx
-   
-    def update(self):
-        self.delta = self.delta*(pm.momentum) + (1-pm.momentum)*self.dw
-        self.w = self.w - pm.learning_rate*self.delta    
-
-
-
-class convolve3d():  
-    def __init__(self, shape=(None,None,None,None), mode ='same', bias=True):
-        self.mode = mode     #(k,l,m,n) k filter, l input dim, (m,n)filter shape
-        self.k, self.l, self.m, self.n = shape
-    def grad_zero(self):
-        self.delta  =  0 #np.zeros((self.k, self.l, self.m, self.n))
-
-    def set_param(self, w):
-        self.w = w
-        self.k, self.l, self.m, self.n = np.shape(w)
-        self.grad_zero()
-    
-    def init_param(self,shape):
-        self.k, self.l, self.m, self.n = shape
-        self.w = np.random.randn(self.k, self.l, self.m, self.n)
-        
-    def forward(self,x):
-        self.x = x.copy()
-        self.X = np.array([pad.pad2d(x,(self.m, self.n), self.mode) for x in self.x]) # X = padded x ,dim=(l,m',n')
-        self.Y = np.array([[sg.correlate2d(x2,w2,mode='valid') for x2,w2 in zip(self.X, w1)] for w1 in self.w]) # dim=(k,l,m',n')
-        self.y = np.sum(self.Y, axis=1) # dim=(k,m',n')       
-        return self.y
-
-    def backward(self, dy):
-        self.dy = dy.copy()
-        self.dX = np.array([[sg.convolve2d(dy,w1,mode='full') for w1 in w] for dy,w in zip(self.dy,self.w)]) #padded dX, dim(k,l,m',n')
-        self.dw = np.array([[sg.correlate2d(X, dy, mode='valid') for X in self.X] for dy in self.dy]) # dim(k,l,m,n)
-        self.dX1 = np.sum(self.dX, axis=0)  #padded dx, dim(l,m',n')
-        self.dx = np.array([pad.unpad2d(dX1, (self.m, self.n), self.mode) for dX1 in self.dX1])   #dim(l,m,n)
-        return self.dx
-    def update(self):
-        self.delta = self.delta*(pm.momentum) + (1-pm.momentum)*self.dw
-        self.w = self.w - pm.learning_rate*self.delta    
-
-
-    
-
-class relu():
-    def __init__(self):
         pass
+   
+    def backward(self,dy):
+        pass
+   
+    def update(self):
+        if self.trainable:
+            self.delta = self.opt.forward(self.dw)
+            self.w = self.w - self.delta
+
+
+class linear(layer):
+    def forward(self,x):
+        self.x = x.copy()
+        self.y = self.x@self.w
+        return self.y
+
+    def backward(self, dy):
+        self.dy = dy.copy()
+        self.dx = self.dy@np.transpose(self.w)  
+        self.dw = np.outer(self.x, self.dy)
+        return self.dx
+    
+
+ 
+class relu(layer):
+    def __init__(self):
+        super().__init__(trainable=False)
+        
     def forward(self,x):
         self.x = x.copy()
         self.y = np.where(self.x<0,0,self.x)
@@ -242,9 +226,10 @@ class relu():
         return self.dx
     
         
-class mse():
+class mse(layer):
     def __init__(self):
-        pass
+        super().__init__(trainable=False)
+    
     def forward(self,x, label):
         self.label = label.copy()  
         self.x = x.copy()
@@ -252,15 +237,13 @@ class mse():
         return self.y
 
     def backward(self):
-        self.dx = self.x - self.label 
-        #t= np.max(np.abs(self.dx)) 
-        
+        self.dx = self.x - self.label         
         return self.dx   
 
-class softmax():
+class softmax(layer):
     def __init__(self):
-        self.dx = []
-
+        super().__init__(trainable=False)
+    
     def forward(self,x):
         self.x = x.copy()
         self.exp = np.exp(self.x)    
@@ -271,19 +254,14 @@ class softmax():
     def backward(self, dy):
         self.dy = dy.copy()
         self.avg = np.sum(self.dy*self.y)
-        self.dx =  self.y*(self.dy - self.avg) 
-        t= np.max(np.abs(self.dx)) 
-        if t>100:
-            print(t, 'overflow')
-            self.dx = self.dx/t
-         
+        self.dx =  self.y*(self.dy - self.avg)  
         return self.dx 
 
 
-class cre():
+class cre(layer):
     def __init__(self):
-        self.dx = []
-
+        super().__init__(trainable=False)
+        
     def forward(self,x, label):
         self.label = label.copy()  
         self.x = x.copy()
@@ -297,10 +275,10 @@ class cre():
         self.dx = -self.label*(1/(self.x+0.0001))       # 0.0001 is added to avoid insanely large value of 1/x     
         return self.dx   
 
-class sigmoid():
+class sigmoid(layer):
     def __init__(self):
-        self.dx =[]
-
+        super().__init__(trainable=False)
+    
     def forward(self, x):
         self.x = x.copy()
         self.y = 1/(1+np.exp(-x))
@@ -311,45 +289,7 @@ class sigmoid():
         self.dx = self.dy*self.y*(1-self.y)    
         return self.dx
 
-        
-class optimizer():
-    def __init__(self, eta=0.001,beta1 = 0.9, beta2 = 0.999,epsilon=10**(-8)):
-        self.eta = eta
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.epsilon =epsilon
-        self.t = 0     #time stamp
-        self.m = 0    #first order moment aka momentum
-        self.v = 0    #second order moment
-        self.dw = []
-        self.delta = []
-    def adam(self, dw):
-        self.t = self.t + 1
-        self.dw = dw
-        self.m = self.beta1*self.m + (1-self.beta1)*self.dw
-        self.v = self.beta2*self.v + (1-self.beta2)*(self.dw*self.dw)
-        self.temp1 = self.m/(1-self.beta1**self.t) #Bias correction, as it was initilized to 0
-        self.temp2 = self.v/(1-self.beta2**self.t)  # Bias correction
-        self.delta = self.eta*self.temp1/(np.sqrt(self.v)+self.epsilon)
-        return self.delta
-        
-class add():
-    def __init__(self):
-        self.dw = []
-        self.w  = 0
-        self.grad_zero()
-
-    def grad_zero(self):
-        self.delta = 0
-    
-    def init(self):
-        self.w = 0
-        self.grad_zero()
-
-    def set_param(self,w):
-        self.w = w
-        self.grad_zero()
-
+class add(layer):
     def forward(self,x):
         self.x = x.copy()
         self.y = self.x + self.w
@@ -361,14 +301,73 @@ class add():
         self.dx = self.dy
         return self.dx  
 
-    def update(self):
-        self.delta = self.delta*pm.momentum + self.dw*(1-pm.momentum)  
-        self.w = self.w - pm.learning_rate*self.delta  
+class hadamard(layer):    
+    def forward(self,x):
+        self.x = x.copy()
+        self.y = self.x*self.w      
+        return self.y
+
+    def backward(self, dy):
+        self.dy = dy
+        self.dx = self.dy*self.w
+        self.dw =self.dy*self.x
+        return self.dx
+
+        
+class convolve(layer):  
+    def forward(self,x):
+        self.x = x.copy()
+        self.m = self.shape
+        self.X = pad.pad1d(self.x, self.m, self.mode)  #padding
+        self.y = sg.correlate(self.X, self.w, mode='valid')     
+        return self.y
+
+    def backward(self, dy):
+        self.dy = dy.copy()
+        self.dX = sg.convolve(self.dy, self.w, mode='full')  #padded grad
+        self.dw = sg.correlate(self.X, self.dy, mode='valid')
+        self.dx = pad.unpad1d(self.dX, self.m, mode=self.mode) #unpadded grad
+        return self.dx
+
+    
+class convolve2d(layer):  
+    def forward(self,x):
+        self.x = x.copy()
+        self.m, self.n = self.shape
+        self.X = pad.pad2d(x,(self.m, self.n), self.mode)  #padded x = X
+        self.y = sg.correlate2d(self.X, self.w, 'valid')     
+        return self.y
+
+    def backward(self, dy):
+        self.dy = dy.copy()
+        self.dX = sg.convolve2d(self.dy,self.w, mode='full')        #padded dX
+        self.dw = sg.correlate2d(self.X, self.dy, mode='valid')
+        self.dx = pad.unpad2d(self.dX, (self.m, self.n), self.mode)   #padded dx
+        return self.dx
+   
+    
 
 
-# class sequential():
-#     def __init__(self):
-#         self.L = []
+class convolve3d(layer):          
+    def forward(self,x):
+        self.x = x.copy()
+        #(k,l,m,n) k filter, l input dim, (m,n)filter shape
+        self.k, self.l, self.m, self.n = self.shape
+        self.X = np.array([pad.pad2d(x,(self.m, self.n), self.mode) for x in self.x]) # X = padded x ,dim=(l,m',n')
+        self.Y = np.array([[sg.correlate2d(x2,w2,mode='valid') for x2,w2 in zip(self.X, w1)] for w1 in self.w]) # dim=(k,l,m',n')
+        self.y = np.sum(self.Y, axis=1) # dim=(k,m',n')       
+        return self.y
 
-#     def add_layer(self,name,dim=0):
-#         self.L.append([name,dim])        
+    def backward(self, dy):
+        self.dy = dy.copy()
+        self.dX = np.array([[sg.convolve2d(dy,w1,mode='full') for w1 in w] for dy,w in zip(self.dy,self.w)]) #padded dX, dim(k,l,m',n')
+        self.dw = np.array([[sg.correlate2d(X, dy, mode='valid') for X in self.X] for dy in self.dy]) # dim(k,l,m,n)
+        self.dX1 = np.sum(self.dX, axis=0)  #padded dx, dim(l,m',n')
+        self.dx = np.array([pad.unpad2d(dX1, (self.m, self.n), self.mode) for dX1 in self.dX1])   #dim(l,m,n)
+        return self.dx
+   
+
+    
+ 
+
+ 
