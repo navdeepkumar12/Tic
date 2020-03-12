@@ -99,7 +99,7 @@ class adamax(optimizer):
     def initilize(self):
         if self.first_time == True:
             self.shape = self.dw.shape
-            self.v = np.zeros(self.shape) 
+            self.v = np.ones(self.shape) 
             self.first_time == False   
 
     def forward(self,dw):
@@ -146,7 +146,8 @@ class normal(param):
 class he(param):
     def forward(self,shape):
         self.shape = shape 
-        self.scale = np.sqrt(self.shape[0],np.prod(self.shape[1:]))   # for lin and conv2d, conv3d, ?for conv1d, add1
+        #self.scale = np.sqrt(self.shape[0]+np.prod(self.shape[1:]))   # for lin and conv2d, conv3d, ?for conv1d, add1
+        self.scale = np.sqrt(np.prod(self.shape))
         self.w = eval('np.random.randn'+ str(self.shape))/self.scale
         print('nn:param:he:- param initilized HE random normal')
         return self.w
@@ -154,7 +155,7 @@ class he(param):
 
 class layer():
 
-    def __init__(self, shape=None, opt='adam', param = 'normal', trainable = True, mode = 'valid'):
+    def __init__(self, shape=None, opt='adamax', param = 'he', trainable = True, mode = 'valid'):
         self.x, self.y, self.dy, self.dx , self.dw, self.delta = np.repeat(None,6)
         self.w = 0 # By defalut weights is 0 if shape is not specified, works good for add layer
         self.opt = eval(opt+'()')
@@ -200,12 +201,18 @@ class layer():
 class linear(layer):
     def forward(self,x):
         self.x = x.copy()
+        self.input_shape = x.shape
+        self.reshape = x.ndim >1
+        if self.reshape:
+            self.x = self.x.reshape([-1])
         self.y = self.x@self.w
         return self.y
 
     def backward(self, dy):
         self.dy = dy.copy()
-        self.dx = self.dy@np.transpose(self.w)  
+        self.dx = self.dy@np.transpose(self.w) 
+        if self.reshape:
+            self.dx = self.dx.reshape(self.input_shape) 
         self.dw = np.outer(self.x, self.dy)
         return self.dx
     
@@ -333,15 +340,16 @@ class convolve(layer):
 class convolve2d(layer):  
     def forward(self,x):
         self.x = x.copy()
-        self.m, self.n = self.shape
+        self.k, self.m, self.n = self.shape # k filter, (m,n) filter shape
         self.X = pad.pad2d(x,(self.m, self.n), self.mode)  #padded x = X
-        self.y = sg.correlate2d(self.X, self.w, 'valid')     
+        self.y = np.array([sg.correlate2d(self.X, w, 'valid') for w in self.w]) # correlation   
         return self.y
 
     def backward(self, dy):
         self.dy = dy.copy()
-        self.dX = sg.convolve2d(self.dy,self.w, mode='full')        #padded dX
-        self.dw = sg.correlate2d(self.X, self.dy, mode='valid')
+        self.temp = np.array([sg.convolve2d(dy,w, mode='full') for dy,w in zip(self.dy,self.w)]) # high dim, padded dX
+        self.dX = np.sum(self.temp, axis=0)           #padded dX
+        self.dw = np.array([sg.correlate2d(self.X, dy, mode='valid') for dy in self.dy]) 
         self.dx = pad.unpad2d(self.dX, (self.m, self.n), self.mode)   #padded dx
         return self.dx
    
@@ -369,5 +377,50 @@ class convolve3d(layer):
 
     
  
+class sequential():
+    def __init__(self,layers = [], loss = cre()):
+        self.n = len(layers)
+        self.layers = layers
+        self.loss = cre()
+        
+    def forward(self,x):
+        self.x = x.copy()
+        self.y = x.copy()
+        for layer in self.layers:
+            self.y = layer.forward(self.y)
+        return self.y    
 
- 
+    def backward(self, dy):
+        self.dy = dy.copy()
+        self.dx = dy.copy()
+        for layer in reversed(self.layers):
+            self.dx = layer.backward(self.dx)
+        return self.dx    
+     
+    def update(self):
+        for layer in self.layers:
+            layer.update()
+    
+    # def fit(self,x,y):
+    #     y = self.forward(x)
+    #     loss = self.loss.forward(x,y)
+    #     dx = self.loss.backward()
+    #     dx = self.backward(dx)
+    #     return loss
+
+    
+    def get_weights(self):
+        self.w = [layer.w for layer in self.layers]
+        return self.w
+    
+    def get_activation(self):
+        self.act = [layer.x for layer in self.layers]
+        return self.act
+   
+    def gain(self):
+        self.mean = [np.mean(np.abs(layer.x)) for layer in self.layers]  
+        self.std  = [np.std(layer.x) for layer in self.layers]
+        return [self.mean, self.std]
+
+
+
