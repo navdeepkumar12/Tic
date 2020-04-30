@@ -16,7 +16,7 @@ To play with trained agent interactively:- 1) Run play.py, 2)enter 'Q<>' with wh
   # ALPHA GO 
 
 nn.py has neural network library, like linear, relu, softmax, convolution, cre, mse forward and backpropagation.
-
+For theoritical proofs see nn.pdf.
           # Backprop for convolution (1d input & 1d output,  2d input &2d weight)
 input x,output y, filter w, inward grad dy, outward grad dx, mode {'full', 'valid', same','custom'}. Algorithm is below.
 
@@ -50,4 +50,6 @@ dx =  unpad(dX1)  #dim(l,m,n)
 
                # Opitimizer ADAM
 See original paper ADAM: A METHOD  FOR STOCHASTIC OPTIMIZATION for excellent reference.
-https://arxiv.org/pdf/1412.6980.pdf               
+https://arxiv.org/pdf/1412.6980.pdf      
+
+Various learning rate setting is employed in optimization of deep learning architechture. See sa.pdf for some experiments and results.
